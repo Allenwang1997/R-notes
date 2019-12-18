@@ -1,0 +1,177 @@
+---
+title: "Notes: read data from web database with R"
+author: "Le Wang"
+date: "12/15/2019"
+output: pdf_document
+---
+```{r, include=FALSE}
+if(!require("rio")) install.packages("rio")
+if(!require("readr")) install.packages("readr")
+if(!require("data.table")) install.packages("data.table")
+if(!require("WDI")) install.packages("WDI")
+if(!require("kableExtra")) install.packages("kableExtra")
+if(!require("knitr"))install.packages("knitr")
+#if(!require("Rccp"))install.packages("Rccp")
+if(!require("lifecycle"))install.packages("lifecycle")
+if(!require("XLConnect"))install.packages("XLConnect")
+
+#install.packages("webshot")
+#webshot::install_phantomjs()
+library(rio)
+library(kableExtra)
+library(knitr)
+library (WDI)
+library(data.table)
+library(kableExtra)
+library(knitr)
+#library(Rccp)
+library(lifecycle)
+library(XLConnect)
+library(RODBC)
+```
+This is only a notes for how to imput and output data with R, which use several different packaages to facilitate extraction from OPEN data sourse. Also, this notes was written as R markdown, which can be modified easily (looking for more examples and comments).
+
+# Contents
+Read TXT or CSV into R 
+Read xls into R
+Read data from spss, stata and sas into R
+Read data from other sources
+Read ZIP into R 
+Read data using WDI
+Read data from API
+Another way to extract data
+Read HTML into R 
+
+
+
+
+
+## Read TXT or CSV into R 
+Here we use UN data as an example.^[http://data.un.org/].(Check the Figure one) Open the link and find the option where we can download the csv file, and right click. Then we can find the option: copy link. The link guide us to download the csv. Here we want to use R to download the file and work with it, so we paste this link in read table here.
+```{r, echo = TRUE}
+#data <-read.table('file or link',header=value,sep="delimter or ,",row.names="names")
+#data <-read.csv(file,header=TRUE,sep=”,”,row.names=”name”)
+ungdp<-read.table("http://data.un.org/_Docs/SYB/CSV/SYB62_230_201904_GDP%20and%20GDP%20Per%20Capita.csv", sep=",",skip=1, header=T)
+ungdpr<-read.csv("http://data.un.org/_Docs/SYB/CSV/SYB62_230_201904_GDP%20and%20GDP%20Per%20Capita.csv",sep=",",skip=1,header = T)
+txt <- read.table("https://s3.amazonaws.com/assets.datacamp.com/blog_assets/test.txt", header = FALSE)
+```
+![COPYLINK](S:\Shared\Allen Wang\notes\UNcsv.png)
+
+
+## Read xls into R
+we have severl choices: gdata, XLConnect, xlsReadWrite
+```{r, echo = TRUE}
+channel <- odbcConnectExcel("student.xls")
+mydataframe<-sqlFetch(channel,"Sheet1")
+odbcClose(channel)
+```
+
+
+
+
+
+If the database using xml, we can use the package xml.
+
+
+
+If we want to get some information from the web, one way is using readlines() to downliad the webpage, and using grep() and gsub() to analyze it. Or we can use RCurl and XML package to get.
+
+
+
+If we download as output of spss or sas, we can use two package.
+
+library(Hmisc)
+
+
+
+## Read data from spss, stata and sas into R
+```{include=True}
+#read.dta(file, convert.dates = TRUE, convert.factors = TRUE, missing.type = FALSE,
+         convert.underscore = FALSE, warn.missing.labels = TRUE)
+
+dat <- read.spss(file=sav, to.data.frame=TRUE)
+data <-spss.get('data.sav or link',use.value.label=TRUE)
+
+install.packages("sas7bdat")
+
+library(sas7bdat)
+sasdata <- read.sas7bdat("sales.sas7bdat")
+
+```
+
+
+##Read data from other sources
+If we want to download data from other database server: like SQL Serve, MySQL, Oracle, DB2, using RODBC package is a convenient way. We need database name, username and password to connect to it. I am not familiar with web scraping, one way is using package ^bold[XML] to parcing the web and convert content into data. 
+```{include=True}
+library(RMySQL)
+criterions_cite <- function(){
+	#set connection
+	conn <- dbConnect(MySQL(), dbname = 'project_name', username = 'xxx', password = 'xxxxxxxxx', host = '192.168.1.200', port = 3306)
+	filter_statements <- paste0('SELECT * FROM sheet_name where distinguish = 1 and deleted = 1')
+	res <- dbSendQuery(conn, filter_statements)
+	#select data, -1 is all, if 3 means first three row
+	dat <- dbFetch(res, -1)
+	#closeRMySQL
+	dbClearResult(dbListResults(conn)[[1]])
+	dbDisconnect(conn)
+	return(dat)
+}
+```
+
+
+
+##Read zip file into R
+If the data was saved in a zip file, we can also using R to download and unzip it. gzip
+```{include=true}
+temp <- tempfile()download.file("http://www.newcl.org/data/zipfiles/a1.zip",temp)
+data <- read.table(unz(temp, "a1.dat"))unlink(temp)
+```
+
+
+
+##Read data using WDI
+WDI is organized as API database, and we can use Dr. Van der Menserberg's ^[https://jgea.org/resources/jgea/ojs/index.php/jgea/article/view/22] WDI package to extract data easily. Here is just an example.
+```{r,echo=true}
+library("WDI")
+WDIsearch("CO2") # search for data on a topic
+co2_transport = WDI(indicator = "EN.CO2.TRAN.ZS") # import data
+```
+
+
+
+##Read data from API
+
+##Another way to extract data
+Moreover, we can also use R to download these files and then import them into R. 
+
+```{r, echo=ture}
+#example 1
+url = "https://vincentarelbundock.github.io/Rdatasets/csv/datasets/co2.csv"
+download.file(url, "extdata/co2.csv")
+df_co2 = read_csv("extdata/co2.csv")
+
+#example 2
+url = "https://www.monetdb.org/sites/default/files/voc_tsvs.zip"
+download.file(url, "voc_tsvs.zip") # download file
+unzip("voc_tsvs.zip", exdir = "data") # unzip files
+file.remove("voc_tsvs.zip") # tidy up by removing the zip file
+```
+
+##RIO package
+https://rdrr.io/cran/rio/man/import.html
+
+https://www.jianshu.com/p/4ea320c0dcc6
+https://www.jianshu.com/p/c2e030187495
+https://csgillespie.github.io/efficientR/input-output.html#prerequisites-4
+https://www.earthdatascience.org/courses/earth-analytics/get-data-using-apis/API-data-access-r/
+
+
+
+
+missing value methods
+https://blog.csdn.net/carlwu/article/details/54020506
+https://blog.csdn.net/lichangzai/article/details/41247123
+
+
+spatial data
+https://www.earthdatascience.org/courses/earth-analytics/document-your-science/add-images-to-rmarkdown-report/
